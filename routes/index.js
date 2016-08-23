@@ -1,7 +1,8 @@
 var express = require('express');
 // var router = express.Router();
 var crypto = require('crypto'),
-    User = require('../models/user.js');
+    User = require('../models/user.js'),
+    Post = require('../models/post.js');
 
 /* GET home page. */
 // router.get('/', function(req, res, next) {
@@ -13,15 +14,23 @@ var crypto = require('crypto'),
 module.exports = function(app){
   //主页
   app.get('/',function(req,res){
-    res.render('index',{ 
-      title: '主页',
-      user:req.session.user,
-      success:req.flash('success').toString(),
-      error:req.flash('error').toString()
+    Post.getAll(null,function(err,posts){
+      if(err){
+        posts = [];
+      }
+
+      res.render('index',{ 
+        title: '主页',
+        user:req.session.user,
+        posts:posts,
+        success:req.flash('success').toString(),
+        error:req.flash('error').toString()
+      });
     });
   });
 
   //注册
+  app.get('/reg',checkNotLogin);
   app.get('/reg',function(req,res){
     res.render('reg',{ 
       title:'注册',
@@ -32,6 +41,7 @@ module.exports = function(app){
   });
 
   //注册提交数据
+  app.post('/reg',checkNotLogin);
   app.post('/reg',function(req,res){
     var name = req.body.name,
         password = req.body.password,
@@ -78,6 +88,7 @@ module.exports = function(app){
   });
 
   //登录
+  app.get('/login',checkNotLogin);
   app.get('/login',function(req,res){
     res.render('login',{ 
       title:'登录',
@@ -88,6 +99,7 @@ module.exports = function(app){
   });
 
   //登录提交数据
+  app.post('/login',checkNotLogin);
   app.post('/login',function(req,res){
     //生成密码为md5值
     var md5 = crypto.createHash('md5'),
@@ -112,23 +124,116 @@ module.exports = function(app){
     });
   });
 
-
-
   //发表
+  app.get('/post',checkLogin);
   app.get('/post',function(req,res){
-    res.render('post',{ title:'发表'});
+    res.render('post',{ 
+      title:'发表',
+      user:req.session.user,
+      success:req.flash('success').toString(),
+      error:req.flash('error').toString()
+    });
   });
-  //发表提交数据
-  app.post('/post',function(req,res){
 
+  //发表提交数据
+  app.post('/post',checkLogin);
+  app.post('/post',function(req,res){
+    var currentUser = req.session.user,
+        post = new Post(currentUser.name,req.body.title,req.body.post);
+    post.save(function(err){
+      if(err){
+        req.flash('error',err);
+        return res.redirect('/');
+      }
+      req.flash('success','发布成功！');
+      res.redirect('/');  //发布成功跳转到主页 
+    });
   });
 
   //注销
+  app.get('/logout',checkLogin);
   app.get('/logout',function(req,res){
     req.session.user = null;
     req.flash('success','注销成功！');
     res.redirect('/');  //注销成功后跳转到主页
   });
+
+  //图片上传
+  app.get('/upload',checkLogin);  //只有登录的用户才能上传文件
+  app.get('/upload',function(req,res){
+    res.render('upload',{
+      title:'文件上传',
+      user:req.session.user,
+      success:req.flash('success').toString(),
+      error:req.flash('error').toString()
+    });
+  });
+
+  app.post('/upload',checkLogin);
+  app.post('/upload',function(req,res){
+    req.flash('success','文件上传成功！');
+    res.redirect('/upload');
+  })
+
+  //用户页面
+  app.get('/u/:name',function(req,res){
+    //检查用户是否存在
+    User.get(req.params.name,function(err,user){
+      if(!user){
+        req.flash('error','用户不存在！');
+        return res.redirect('/'); //用户存在则跳转到主页
+      }
+      //查询并返回该用户的素有文章
+      Post.getAll(user.name,function(err,posts){
+        if(err){
+          req.flash('error',err);
+          return res.redirect('/');
+        }
+        res.render('user',{
+          title:user.name,
+          posts:posts,
+          user:req.session.user,
+          success:req.flash('success').toString(),
+          error:req.flash('error').toString()
+        });
+      });
+    });
+  });
+
+  //文章页面
+  app.get('/u/:name/:day/:title',function(req,res){
+    Post.getOne(req.params.name,req.params.day,req.params.title,function(err,post){
+      if(err){
+        req.flash('error',err);
+        return res.redirect('/');
+      }
+      res.render('article',{
+        title:req.params.title,
+        post:post,
+        user:req.session.user,
+        success:req.flash('success').toString(),
+        error:req.flash('error').toString()
+      });
+    });
+  });
+
+  //检查用户未登录
+  function checkLogin(req,res,next){
+    if(!req.session.user){
+      req.flash('error','未登录！');
+      res.redirect('/login');
+    }
+    next();
+  }
+
+  //检查用户已登录
+  function checkNotLogin(req,res,next){
+    if(req.session.user){
+      req.flash('error','已登录！');
+      res.redirect('back'); //返回之前的页面
+    }
+    next();
+  }
 
 };
 

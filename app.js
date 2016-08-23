@@ -42,6 +42,20 @@ app.use(session({
   })
 }));
 
+// 文件上传插件multerV1.2.0
+var multer = require('multer');
+var storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './public/images')
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname)
+  }
+});
+var upload = multer({ storage: storage });
+var cpUpload = upload.any();
+app.use(cpUpload);
+
 // app.use('/', routes);
 // app.use('/users', users);
 
