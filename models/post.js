@@ -1,5 +1,5 @@
-var mongodb = require('./db'),
-    markdown = require('markdown').markdown;
+var mongodb = require('./db');
+    // markdown = require('markdown').markdown;
 
 function Post(name,title,post){
   this.name = name;
@@ -91,9 +91,9 @@ Post.getTen = function(name,page,callback){
             return callback(err);
           }
           //解析markdown为html
-          docs.forEach(function(doc){
-            doc.post = markdown.toHTML(doc.post);
-          });
+          // docs.forEach(function(doc){
+          //   doc.post = markdown.toHTML(doc.post);
+          // });
           callback(null,docs,total);
         });
       });
@@ -125,12 +125,12 @@ Post.getOne = function(name,day,title,callback){
           return callback(err);
         }
         //解析markdown为html
-        if(doc){
-          doc.post = markdown.toHTML(doc.post);
-          doc.comments.forEach(function(comment){
-            comment.content = markdown.toHTML(comment.content);
-          });
-        }
+        // if(doc){
+        //   doc.post = markdown.toHTML(doc.post);
+        //   doc.comments.forEach(function(comment){
+        //     comment.content = markdown.toHTML(comment.content);
+        //   });
+        // }
         callback(null,doc); //返回查询的一篇文章
       });
     });
