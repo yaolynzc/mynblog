@@ -182,6 +182,23 @@ module.exports = function(app){
     res.redirect('/upload');
   })
 
+  //归档页面
+  app.get('/archive',function(req,res){
+    Post.getArchive(function(err,posts){
+      if(err){
+        req.flash('error',err);
+        return res.redirect('/');
+      }
+      res.render('archive',{
+        title:'目录',
+        posts:posts,
+        user:req.session.user,
+        success:req.flash('success').toString(),
+        error:req.flash('error').toString()
+      });
+    });
+  });
+  
   //用户页面
   app.get('/u/:name',function(req,res){
     var page = req.query.p ? parseInt(req.query.p) : 1;
