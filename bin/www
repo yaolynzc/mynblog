@@ -20,7 +20,7 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
-
+server.setMaxListeners(0);//0或infinite表示无限
 /**
  * Listen on provided port, on all network interfaces.
  */
