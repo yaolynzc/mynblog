@@ -1,8 +1,9 @@
 var mongodb = require('./db');
     // markdown = require('markdown').markdown;
 
-function Post(name,title,tags,post){
+function Post(name,head,title,tags,post){
   this.name = name;
+  this.head = head;
   this.title = title;
   this.tags = tags;
   this.post = post;
@@ -26,11 +27,14 @@ Post.prototype.save = function(callback){
   //要存入数据库的文档
   var post = {
     name:this.name,
+    head:this.head,
     time:time,
     title:this.title,
     tags:this.tags,
     post:this.post,
-    comments:[]
+    comments:[],
+    reprint_info:{},
+    pv:0
   };
 
   //打开数据库
@@ -54,7 +58,7 @@ Post.prototype.save = function(callback){
         if(err){
           return callback(err); //失败！返回err
         }
-        callback(null); //返回err为null
+        callback(null); 
       });
     });
   });
@@ -122,8 +126,8 @@ Post.getOne = function(name,day,title,callback){
         "time.day":day,
         "title":title
       },function(err,doc){
-        mongodb.close();
         if(err){
+          mongodb.close();
           return callback(err);
         }
         //解析markdown为html
@@ -133,7 +137,22 @@ Post.getOne = function(name,day,title,callback){
         //     comment.content = markdown.toHTML(comment.content);
         //   });
         // }
-        callback(null,doc); //返回查询的一篇文章
+        if(doc){
+          //每访问1次，PV值增加1
+          collection.update({
+            "name":name,
+            "time.day":day,
+            "title":title
+          },{
+            $inc:{"pv":1}
+          },function(err){
+            mongodb.close();
+            if(err){
+              return callback(err);
+            }
+          });
+          callback(null,doc); //返回查询的一篇文章
+        }
       });
     });
   });
@@ -212,19 +231,57 @@ Post.remove = function(name,day,title,callback){
         mongodb.close();
         return callback(err);
       }
-      //根据用户名、日期和标题查找并删除一篇文章
-      collection.remove({
+      //查询要删除的文档
+      collection.findOne({
         "name":name,
         "time.day":day,
         "title":title
-      },{
-        w:1
-      },function(err){
-        mongodb.close();
+      },function(err,doc){
         if(err){
+          mongodb.close();
           return callback(err);
         }
-        callback(null);
+        //如果有reprint_form,即该文章是转载来的，先保存下来reprint_from
+        var reprint_from = "";
+        if(doc.reprint_info.reprint_from){
+          reprint_from = doc.reprint_info.reprint_from;
+        }
+        if(reprint_from != ""){
+          //更新原文章所在文档的reprint_to
+          collection.update({
+            "name":reprint_from.name,
+            "time.day":reprint_from.day,
+            "title":reprint_from.title
+          },{
+            $pull:{
+              "reprint_info.reprint_to":{
+                "name":name,
+                "day":day,
+                "title":title
+              }
+            }
+          },function(err){
+            if(err){
+              mongodb.close();
+              return callback(err);
+            }
+          });
+        }
+        //删除转载来的文章所在的文档
+        //根据用户名、日期和标题查找并删除一篇文章
+        collection.remove({
+          "name":name,
+          "time.day":day,
+          "title":title
+        },{
+          w:1
+        },function(err){
+          mongodb.close();
+          if(err){
+            return callback(err);
+          }
+          callback(null);
+        });
       });
     });
   });
@@ -314,3 +371,113 @@ Post.getTag = function(tag,callback){
   });
 };
 
+//返回通过标题关键字查询的所有文章信息
+Post.search = function(keyword,callback){
+  mongodb.open(function(err,db){
+    if(err){
+      return callback(err);
+    }
+    db.collection('posts',function(err,collection){
+      if(err){
+        mongodb.close();
+        return callback(err);
+      }
+      var pattern = new RegExp(keyword,'i');
+      collection.find({
+          "title":pattern
+        },{
+          "name":1,
+          "time":1,
+          "title":1
+        }).sort({
+          time:-1
+        }).toArray(function(err,docs){
+          mongodb.close();
+          if(err){
+            return callback(err);
+          }
+          callback(null,docs);
+      });
+    });
+  });
+};
+
+//转载一篇文章
+Post.reprint = function(reprint_from,reprint_to,callback){
+  mongodb.open(function(err,db){
+    if(err){
+      return callback(err);
+    }
+
+    db.collection('posts',function(err,collection){
+      if(err){
+        mongodb.close();
+        return callback(err);
+      }
+      //找到被转载的文章的原文档
+      collection.findOne({
+        "name":reprint_from.name,
+        "time.day":reprint_from.day,
+        "title":reprint_from.title
+      },function(err,doc){
+        if(err){
+          mongodb.close();
+          return callback(err);
+        }
+
+        var date =  new Date();
+        var time = {
+          date:date,
+          year:date.getFullYear(),
+          month:date.getFullYear() + "-" + (date.getMonth() + 1),
+          day:date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate(),
+          minute:date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " +
+                date.getHours() + ":" + (date.getMinutes() < 10 ? '0' + date.getMinutes() : date.getMinutes())
+        }
+
+        delete doc._id; //注意要删掉原来的 _id
+
+        doc.name = reprint_to.name;
+        doc.head = reprint_to.head;
+        doc.time = time;
+        doc.title = (doc.title.search(/[转载]/) > -1) ? doc.title : "[转载]" + doc.title;
+        doc.comments = [];
+        doc.reprint_info = {"reprint_from" : reprint_from};
+        doc.pv = 0;
+
+        //更新被转载的原文档的reprint_info内的reprint_to
+        collection.update({
+          "name":reprint_from.name,
+          "time.day":reprint_from.day,
+          "title":reprint_from.title
+        },{
+          $push:{
+            "reprint_info.reprint_to":{
+              "name":doc.name,
+              "day":time.day,
+              "title":doc.title
+            }
+          }
+        },function(err){
+          if(err){
+            mongodb.close();
+            return callback(err);
+          }
+        });
+
+        //将转载生成的副本修改后存入数据库，并返回存储后的文档
+        collection.insertOne(doc,{
+          safe:true
+        },function(err,post){
+          mongodb.close();
+          if(err){
+            return callback(err);
+          }
+          //console.log(post.ops[0]);
+          //callback(err,post[0]);      //这样返回数组值是空的，结果会报错，此处调试了N小时！！！
+          callback(err,post.ops[0]);
+        });
+      });
+    });
+  });
+};

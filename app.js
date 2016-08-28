@@ -12,6 +12,10 @@ var routes = require('./routes/index');
 // var users = require('./routes/users');
 var settings = require('./settings');
 var flash = require('connect-flash');
+//日志写入文件
+var fs = require('fs');
+var accessLog = fs.createWriteStream('access.log',{flags:'a'});
+var errorLog = fs.createWriteStream('error.log',{flags:'a'});
 
 var app = express();
 
@@ -23,10 +27,18 @@ app.use(flash());
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
+app.use(logger({stream:accessLog}));  //日志记录
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+//记录错误日志
+app.use(function(err,req,res,next){
+  var meta = '[' + new Date() + ']' + req.url + '\n';
+  errorLog.write(meta + err.stack + '\n');
+  next();
+})
 
 app.use(session({
   secret:settings.cookieSecret,
