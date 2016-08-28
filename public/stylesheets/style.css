@@ -74,7 +74,7 @@ article a:hover {color:#333333;text-decoration: underline;}
 }
 
 .search {
-  border:1px;border-color:#888;width:6em;text-align: center;font-size: 1em;margin:0.5em 0;
+  width:6em;text-align: center;font-size: 1em;margin:0.5em 0;
 }
 
 .l_head {
