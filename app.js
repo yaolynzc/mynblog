@@ -18,6 +18,10 @@ var accessLog = fs.createWriteStream('access.log',{flags:'a'});
 var errorLog = fs.createWriteStream('error.log',{flags:'a'});
 
 var app = express();
+//添加passport认证中间件
+var passport = require('passport'),
+    GithubStrategy = require('passport-github').Strategy;
+
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -70,7 +74,7 @@ app.use(cpUpload);
 
 // app.use('/', routes);
 // app.use('/users', users);
-
+app.use(passport.initialize()); //初始化passport
 routes(app);
 
 // catch 404 and forward to error handler
@@ -79,6 +83,14 @@ app.use(function(req, res, next) {
   err.status = 404;
   next(err);
 });
+
+passport.use(new GithubStrategy({
+  clientID:"5387c44a487ed0cb23fc",
+  clientSecret:"a782274d4fc846f3fa21c65b7018e0a3a5ed0d3e",
+  callbackURL:"http://localhost:3000/login/github/callback"
+},function(accessToken,refreshToken,profile,done){
+  done(null,profile);
+}));
 
 // error handlers
 

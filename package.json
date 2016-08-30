@@ -18,6 +18,8 @@
     "connect-mongo":"*",
     "connect-flash":"*",
     "markdown":"*",
-    "multer":"*"
+    "multer":"*",
+    "passport":"*",
+    "passport-github":"*"
   }
 }

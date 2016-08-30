@@ -1,9 +1,11 @@
 var express = require('express');
+var passport = require('passport');
 // var router = express.Router();
 var crypto = require('crypto'),
     User = require('../models/user.js'),
     Post = require('../models/post.js'),
     Comment = require('../models/comment.js');
+    
 
 /* GET home page. */
 // router.get('/', function(req, res, next) {
@@ -103,6 +105,17 @@ module.exports = function(app){
       success:req.flash('success').toString(),
       error:req.flash('error').toString()
     });
+  });
+
+  //通过github登录
+  app.get("/login/github",passport.authenticate("github",{session:false}));
+  app.get("/login/github/callback",passport.authenticate("github",{
+    session:false,
+    failureRedirect:'/login',
+    successFlash:'登录成功！'
+  }),function(req,res){
+    req.session.user = {name:req.user.username,head:"https://gravatar.com/avatar/" + req.user._json.gravatar_id + "?s=48"};
+    res.redirect('/');
   });
 
   //登录提交数据
@@ -265,8 +278,9 @@ module.exports = function(app){
   app.get('/u/:name',function(req,res){
     var page = req.query.p ? parseInt(req.query.p) : 1;
 
-    //检查用户是否存在
+    //检查用户是否存在  
     User.get(req.params.name,function(err,user){
+      //如果是通过github账号登录，此处判断用户是否存在的步骤需要删除
       if(!user){
         req.flash('error','用户不存在！');
         return res.redirect('/'); //用户不存在跳转到主页
