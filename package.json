@@ -20,6 +20,7 @@
     "markdown":"*",
     "multer":"*",
     "passport":"*",
-    "passport-github":"*"
+    "passport-github":"*",
+    "mongoose":"*"
   }
 }
