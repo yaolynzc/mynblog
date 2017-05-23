@@ -1,6 +1,6 @@
 module.exports = {
   cookieSecret:'mynblog',
   db:'nblog',
-  host:'220.249.123.36',
-  port:'27018'
+  host:'127.0.0.1',
+  port:'27017'
 };

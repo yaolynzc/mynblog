@@ -1,6 +1,6 @@
 var crypto = require('crypto');
 var mongoose = require('mongoose');
-mongoose.connect('mongodb://220.249.123.36:27018/nblog');
+mongoose.connect('mongodb://127.0.0.1:27017/nblog');
 
 var userSchema = new mongoose.Schema({
   name:String,
